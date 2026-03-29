@@ -20,6 +20,7 @@ export default function Availability() {
   const [schedule, setSchedule] = useState({});
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [loadError, setLoadError] = useState(false);
 
   useEffect(() => {
     fetchAvailability();
@@ -48,19 +49,36 @@ export default function Availability() {
         }
       });
       setSchedule(initialMap);
+      setLoadError(false);
     } catch (err) {
       console.error(err);
+      const fallback = {};
+      DAYS.forEach(day => {
+        fallback[day.id] = {
+          active: day.id >= 1 && day.id <= 5,
+          start_time: '09:00',
+          end_time: '17:00'
+        };
+      });
+      setSchedule(fallback);
+      setLoadError(true);
     } finally {
       setLoading(false);
     }
   };
 
   const handleToggle = (id) => {
-    setSchedule(prev => ({ ...prev, [id]: { ...prev[id], active: !prev[id].active } }));
+    setSchedule(prev => {
+      const current = prev[id] || { active: false, start_time: '09:00', end_time: '17:00' };
+      return { ...prev, [id]: { ...current, active: !current.active } };
+    });
   };
 
   const handleChange = (id, field, value) => {
-    setSchedule(prev => ({ ...prev, [id]: { ...prev[id], [field]: value } }));
+    setSchedule(prev => {
+      const current = prev[id] || { active: false, start_time: '09:00', end_time: '17:00' };
+      return { ...prev, [id]: { ...current, [field]: value } };
+    });
   };
 
   const handleSave = async () => {
@@ -68,7 +86,7 @@ export default function Availability() {
     try {
       for (const day of Object.values(DAYS)) {
         const payload = schedule[day.id];
-        if (payload.active) {
+        if (payload && payload.active) {
           await api.post('/availability', {
             day_of_week: day.id,
             start_time: payload.start_time,
@@ -95,6 +113,12 @@ export default function Availability() {
         <p className="text-muted-foreground">Configure your weekly recurring schedule.</p>
       </div>
 
+      {loadError ? (
+        <div className="text-sm text-destructive">
+          Failed to load availability from the server. Showing default values.
+        </div>
+      ) : null}
+
       <Card>
         <CardHeader>
           <CardTitle>Working Hours</CardTitle>
@@ -106,25 +130,25 @@ export default function Availability() {
               <div className="flex items-center gap-2 w-32">
                 <input 
                   type="checkbox" 
-                  checked={schedule[day.id].active} 
+                  checked={Boolean(schedule[day.id]?.active)} 
                   onChange={() => handleToggle(day.id)}
                   className="w-4 h-4 rounded border-input"
                 />
                 <Label className="text-base font-medium cursor-pointer" onClick={() => handleToggle(day.id)}>{day.name}</Label>
               </div>
               
-              {schedule[day.id].active ? (
+              {schedule[day.id]?.active ? (
                 <div className="flex items-center gap-3">
                   <Input 
                     type="time" 
-                    value={schedule[day.id].start_time}
+                    value={schedule[day.id]?.start_time || '09:00'}
                     onChange={(e) => handleChange(day.id, 'start_time', e.target.value)}
                     className="w-32"
                   />
                   <span className="text-muted-foreground">-</span>
                   <Input 
                     type="time" 
-                    value={schedule[day.id].end_time}
+                    value={schedule[day.id]?.end_time || '17:00'}
                     onChange={(e) => handleChange(day.id, 'end_time', e.target.value)}
                     className="w-32"
                   />
