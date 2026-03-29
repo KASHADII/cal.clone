@@ -27,8 +27,16 @@ const corsOptions = {
 };
 
 app.use(cors(corsOptions));
-app.options('*', cors(corsOptions));
+app.options(/.*/, cors(corsOptions));
 app.use(express.json());
+
+app.get('/', (req, res) => {
+  res.status(200).json({ ok: true, message: 'Cal.clone backend is running' });
+});
+
+app.get('/health', (req, res) => {
+  res.status(200).json({ ok: true });
+});
 
 app.use('/events', eventsRoutes);
 app.use('/availability', availabilityRoutes);
